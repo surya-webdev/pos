@@ -57,14 +57,14 @@ app.get("/", async (req, res) => {
     printer.println("surya.S");
     printer.cut();
     await printer.execute();
+
     res.json({
       message: "Print",
     });
   } catch (error) {
     console.error("Print failed:", error);
+    res.json({ message: "failed" });
   }
-
-  res.json({ message: "YAYYYY" });
 });
 
 app.post("/print", async (req, res) => {
