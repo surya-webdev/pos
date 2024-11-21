@@ -1,90 +1,197 @@
+const express = require("express");
 const ThermalPrinter = require("node-thermal-printer").printer;
 const PrinterTypes = require("node-thermal-printer").types;
-const express = require("express");
+
 const app = express();
 const cors = require("cors");
 
-const PORT = 4000;
+const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
 
-// let printer;
-
-// async function initPrinter() {
-//   printer = new ThermalPrinter({
-//     type: PrinterTypes.EPSON, // Change this if you're using a different printer type
-//     interface: "//localhost/POS-80-Series1", // Updated path format
-//     options: {
-//       timeout: 1000,
-//     },
-//   });
-
-//   try {
-//     const isConnected = await printer.isPrinterConnected();
-//     console.log("Printer connected:", isConnected);
-//   } catch (error) {
-//     console.error("Printer connection error:", error);
-//   }
-// }
-
-// initPrinter();
-
-let printer = new ThermalPrinter({
+const printer = new ThermalPrinter({
   type: PrinterTypes.EPSON,
+  width: 48,
+  removeSpecialCharacters: false,
   interface: "//localhost/POS-80-Series1",
+  lineCharacter: "2", // Set character for lines - default: "-"
+  // breakLine: BreakLine.WORD, // Break line after WORD or CHARACTERS. Disabled with NONE - default: WORD
   options: {
-    timeout: 1000,
+    timeout: 15000,
   },
 });
 
-printer.alignCenter();
-printer.setTextSize(2, 2);
-// // printer.
-// printer.println("Sabarinath.S");
-
-// // printer.println("");
-// printer.cut();
-// try {
-//   let execute = printer.execute();
-//   console.log("Print done!");
-// } catch (error) {
-//   console.error("Print failed:", error);
-// }
-
-app.get("/", async (req, res) => {
-  try {
-    printer.println("surya.S");
-    printer.cut();
-    await printer.execute();
-
-    res.json({
-      message: "Print",
-    });
-  } catch (error) {
-    console.error("Print failed:", error);
-    res.json({ message: "failed" });
-  }
-});
+const rupees = "Rs.";
 
 app.post("/print", async (req, res) => {
-  console.log(req.body);
-  const { title } = req.body;
-  console.log(title);
+  const { items, totalPrice } = await req.body;
+
+  if (items.length === 0 || !totalPrice) return;
+  const today = new Date();
+  const formattedDate = today.toISOString().split("T")[0];
+  const hour = today.getHours();
+  const minutes = today.getMinutes();
+  const seconds = today.getSeconds();
+
   try {
+    printer.setTypeFontB();
+    printer.alignRight();
+    printer.println(formattedDate);
+    printer.println(
+      `${hour}:${minutes < 9 ? "0" + minutes : minutes}:${
+        seconds < 9 ? "0" + seconds : seconds
+      }`
+    );
+    printer.newLine();
+    printer.newLine();
+    //
+    printer.getWidth();
+    printer.setTextDoubleWidth();
+    printer.setTextDoubleHeight();
+    printer.setTextQuadArea();
     printer.alignCenter();
-    printer.println(title);
-    printer.cut();
+    printer.bold(true);
+    printer.println("FOODIE's Hub");
+    // Draws a line
+    printer.newLine();
+    printer.newLine();
 
-    await printer.execute();
+    printer.setTextNormal();
+    printer.tableCustom([
+      { text: "Food", align: "LEFT" },
+      { text: "Quantity", align: "CENTER", bold: true },
+      { text: "Price", align: "RIGHT" },
+    ]);
+    printer.newLine();
 
-    return res.json({ message: "SUCESSS" });
+    {
+      items.map((item) => {
+        return (
+          printer.tableCustom([
+            { text: item.name, align: "LEFT", bold: true },
+            {
+              text: String(item.quantity ? item.quantity : "1"),
+              align: "CENTER",
+              bold: true,
+            },
+            {
+              text: String(`${rupees}${item.price}`),
+              align: "RIGHT",
+            },
+          ]),
+          printer.newLine()
+        );
+      });
+    }
+    printer.underline(true);
+    printer.drawLine("-");
+    printer.setTextDoubleWidth();
+    printer.setTextDoubleHeight();
+
+    printer.setTextQuadArea();
+    printer.alignRight();
+    printer.bold(true);
+    printer.println("TOTAL");
+    printer.newLine();
+    printer.println(`${rupees}${totalPrice}`);
+    printer.newLine();
+
+    printer.setTextDoubleWidth();
+    printer.setTextDoubleHeight();
+    printer.alignCenter();
+    printer.bold(true);
+    printer.println("Thanks For Coming.");
+    printer.println("Please Visit Again!");
+    printer.newLine();
+    printer.printQR("https://maps.app.goo.gl/wfUG7B2J2bXvW4KL6");
+    printer.partialCut();
+
+    const res = await printer.execute();
+
+    if (res.toLowerCase().split(" ").join("") === "printdone") {
+      return res.json({
+        message: "success",
+      });
+    } else {
+      throw Error("EXCUTION FAILED");
+    }
   } catch (error) {
-    console.error("errorMessage", error);
-    res.status(501);
+    console.error("error", error);
+    return res.json({
+      message: "failed",
+      error: "PRINTER EXCUTION PROBLEM",
+    });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(PORT);
+app.post("/kitchen", async (req, res) => {
+  const { items } = await req.body;
+
+  if (items.length === 0) return;
+
+  const today = new Date();
+  const formattedDate = today.toISOString().split("T")[0];
+  const hour = today.getHours();
+  const minutes = today.getMinutes();
+  const seconds = today.getSeconds();
+
+  try {
+    printer.setTypeFontB();
+    printer.bold(true);
+    printer.alignCenter();
+
+    printer.println("KITCHEN ORDER");
+    printer.alignRight();
+    printer.println(formattedDate);
+    printer.println(
+      `${hour}:${minutes < 9 ? "0" + minutes : minutes}:${
+        seconds < 9 ? "0" + seconds : seconds
+      }`
+    );
+    printer.setTextNormal();
+    printer.tableCustom([
+      { text: "Food Item", align: "LEFT", bold: true },
+      { text: "Quantity", align: "RIGHT", bold: true },
+    ]);
+    printer.newLine();
+
+    {
+      items.map((item) => {
+        return (
+          printer.tableCustom([
+            { text: item.name, align: "LEFT", bold: true },
+            {
+              text: String(item.quantity ? item.quantity : "1"),
+              align: "RIGHT",
+              bold: true,
+            },
+          ]),
+          printer.drawLine("-")
+        );
+      });
+    }
+
+    printer.newLine();
+    printer.cut();
+
+    const res = await printer.execute();
+
+    if (res.toLowerCase().split(" ").join("") === "printdone") {
+      return res.json({
+        message: "SUCESS",
+      });
+    }
+  } catch (error) {
+    console.error("error", error);
+    return res.json({ message: "failed", error: "PRINTER EXCUTION PROBLEM" });
+  }
+});
+
+app.get("/test", (req, res) => {
+  res.send("yes");
+});
+
+app.listen(PORT, (req, res) => {
+  console.log(`PORT IS RUNNING ON ${PORT}`);
 });
