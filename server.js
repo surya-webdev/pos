@@ -5,7 +5,7 @@ const PrinterTypes = require("node-thermal-printer").types;
 const app = express();
 const cors = require("cors");
 
-const PORT = 3001;
+const PORT = 3002;
 
 app.use(cors());
 app.use(express.json());
@@ -26,6 +26,7 @@ const rupees = "Rs.";
 
 app.post("/print", async (req, res) => {
   const { items, totalPrice } = await req.body;
+  console.log(items);
 
   if (items.length === 0 || !totalPrice) return;
   const today = new Date();
@@ -104,18 +105,14 @@ app.post("/print", async (req, res) => {
     printer.println("Thanks For Coming.");
     printer.println("Please Visit Again!");
     printer.newLine();
-    printer.printQR("https://maps.app.goo.gl/wfUG7B2J2bXvW4KL6");
+    printer.printQR("https://linktr.ee/foodieshub.blr");
     printer.partialCut();
 
-    const res = await printer.execute();
+    await printer.execute();
 
-    if (res.toLowerCase().split(" ").join("") === "printdone") {
-      return res.json({
-        message: "success",
-      });
-    } else {
-      throw Error("EXCUTION FAILED");
-    }
+    return res.json({
+      message: "success",
+    });
   } catch (error) {
     console.error("error", error);
     return res.json({
@@ -128,7 +125,7 @@ app.post("/print", async (req, res) => {
 app.post("/kitchen", async (req, res) => {
   const { items } = await req.body;
 
-  if (items.length === 0) return;
+  if (items.length === 0) throw Error("INVALID Length");
 
   const today = new Date();
   const formattedDate = today.toISOString().split("T")[0];
@@ -175,20 +172,21 @@ app.post("/kitchen", async (req, res) => {
     printer.newLine();
     printer.cut();
 
-    const res = await printer.execute();
-
-    if (res.toLowerCase().split(" ").join("") === "printdone") {
-      return res.json({
-        message: "SUCESS",
-      });
-    }
+    await printer.execute();
+    return res.json({
+      message: "success",
+    });
   } catch (error) {
     console.error("error", error);
-    return res.json({ message: "failed", error: "PRINTER EXCUTION PROBLEM" });
+    return res
+      .status(402)
+      .json({ message: "failed", error: "PRINTER EXCUTION PROBLEM" });
   }
 });
 
-app.get("/test", (req, res) => {
+app.get("/test", async (req, res) => {
+  printer.println("yes");
+  await printer.execute();
   res.send("yes");
 });
 
